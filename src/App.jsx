@@ -1,56 +1,92 @@
-import React, { useReducer, useEffect, useState } from "react";
-import ProductForm from './components/ProductForm'
-import ProductList from './components/ProductList'
-import { productReducer } from "./reducer";
+import React, { useState } from 'react';
+import { movies } from './data/movies';
+import { styles } from './styles/styles';
+import { Header } from './components/Header';
+import { SearchBar } from './components/SearchBar';
+import { MovieCard } from './components/MovieCard';
+import { MovieDetails } from './components/MovieDetails';
+import { EmptyState } from './components/EmptyState';
 
-function App() {
-    const [products, dispatch] = useReducer(productReducer, [])
-    const [editingProduct, setEditingProduct] = useState(null)
+const App = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [favorites, setFavorites] = useState([]);
+  const [showingFavorites, setShowingFavorites] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
-    useEffect(() => {
-        const stored = localStorage.getItem('products')
-        if (stored) {
-            dispatch({ type: 'INIT', payload: JSON.parse(stored)})
-        }
-    }, [])
-
-    useEffect(() => {
-        localStorage.setItem('products', JSON.stringify(products))
-    }, [products])
-
-    const addProduct= (product) => {
-        dispatch({ type: 'ADD', payload: product})
+  // Filter movies based on search and favorites
+  const filteredMovies = movies.filter(movie => {
+    const matchesSearch = movie.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const isFav = favorites.includes(movie.id);
+    
+    if (showingFavorites) {
+      return matchesSearch && isFav;
     }
+    return matchesSearch;
+  });
 
-    const updateProduct = (product) => {
-        dispatch({ type: 'UPDATE', payload: product})
-        setEditingProduct(null)
-    }
+  const toggleFavorite = (movieId) => {
+    setFavorites(prev => 
+      prev.includes(movieId) 
+        ? prev.filter(id => id !== movieId)
+        : [...prev, movieId]
+    );
+  };
 
-    const DeleteProduct = (id) => {
-        dispatch({ type: 'DELETE', payload: id})
-    }
+  const openMovieDetails = (movie) => {
+    setSelectedMovie(movie);
+    setModalOpen(true);
+  };
 
-    const handleEdit = (product) => {
-        setEditingProduct(product)
-    }
+  const closeModal = () => {
+    setModalOpen(false);
+    setSelectedMovie(null);
+  };
 
-    return(
-        <>
-        <div className="container">
-            <h1>Products</h1>
-            <ProductForm 
-            onAdd={addProduct}
-            onUpdate={updateProduct}
-            editingProduct={editingProduct}
-            />
-            <ProductList 
-            products={products}
-            onDelete={DeleteProduct}
-            onEdit={handleEdit}/>
+  return (
+    <div style={styles.app}>
+      <Header 
+        favoritesCount={favorites.length}
+        showingFavorites={showingFavorites}
+        onToggleView={() => setShowingFavorites(!showingFavorites)}
+      />
+
+      <main style={styles.main}>
+        <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+        
+        <div style={styles.resultsHeader}>
+          <h2 style={styles.sectionTitle}>
+            {showingFavorites ? 'Your Favorite Movies' : 'Popular Movies'} 
+            <span style={styles.resultCount}>({filteredMovies.length})</span>
+          </h2>
         </div>
-        </>
-    )
-}
 
-export default App
+        {filteredMovies.length > 0 ? (
+          <div style={styles.moviesGrid}>
+            {filteredMovies.map((movie) => (
+              <MovieCard
+                key={movie.id}
+                movie={movie}
+                isFavorite={favorites.includes(movie.id)}
+                onFavoriteClick={toggleFavorite}
+                onMovieClick={openMovieDetails}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState showingFavorites={showingFavorites} />
+        )}
+      </main>
+
+      <MovieDetails
+        movie={selectedMovie}
+        isOpen={modalOpen}
+        onClose={closeModal}
+        isFavorite={selectedMovie ? favorites.includes(selectedMovie.id) : false}
+        onFavoriteClick={toggleFavorite}
+      />
+    </div>
+  );
+};
+
+export default App;
